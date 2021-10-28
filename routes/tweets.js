@@ -3,6 +3,9 @@ const https = require('https');
 const router = express.Router();
 const axios = require('axios');
 const needle = require('needle');
+const Analyzer = require('natural').SentimentAnalyzer;
+const stemmer = require('natural').PorterStemmer;
+const analyzer = new Analyzer("English", stemmer, "afinn");
 
 const twitterBearer = "AAAAAAAAAAAAAAAAAAAAAB1nTwEAAAAAiIXMeU%2BG0%2BNwtjNabjDMsW9ZsIA%3DKhtmxlbRsEUVTEewUsHP3rvSzQxqiQzjLtbqRGRJ1oDE6HHKzo";
 const streamURL = 'https://api.twitter.com/2/tweets/search/stream';
@@ -26,6 +29,7 @@ function streamConnect(retryAttempt) {
             //Maybe save this somewhere? and then perfrom analysis on it
             const json = JSON.parse(data);
             console.log(json);
+            console.log(analyzer.getSentiment(json.data.text.split(" ")));
             // A successful connection resets retry count.
             retryAttempt = 0;
         } catch (e) {

@@ -25,7 +25,6 @@ function streamConnect(retryAttempt) {
 
     stream.on('data', data => {
         try {
-
             //Maybe save this somewhere? and then perfrom analysis on it
             const json = JSON.parse(data);
             console.log(json);

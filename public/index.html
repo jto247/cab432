@@ -7,9 +7,6 @@
     <meta name="author" content="">
     <link rel="icon" href="../../../../favicon.ico">
     <!-- Line Chart -->
-    <div>
-      <canvas id="myChart" ></canvas>
-    </div>
 
     <title>Sticky Footer Navbar Template for Bootstrap</title>
 
@@ -24,7 +21,12 @@
   </head>
 
   <body onload = "showTweets()">
-
+    <br>
+    <center>
+      <div>
+        <canvas id="myChart"></canvas>
+      </div>
+    </center>
     <header>
       <!-- Fixed navbar -->
       <nav class="navbar navbar-expand-md navbar-dark fixed-top bg-dark">
@@ -90,5 +92,11 @@
     <script>window.jQuery || document.write('<script src="../../../../assets/js/vendor/jquery-slim.min.js"><\/script>')</script>
     <script src="../../../../assets/js/vendor/popper.min.js"></script>
     <script src="../../../../dist/js/bootstrap.min.js"></script>
+    <style>
+      canvas{
+        width: 700px !important;
+        height: 400px !important;
+      }
+    </style>
   </body>
 </html>

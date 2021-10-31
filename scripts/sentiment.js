@@ -6,6 +6,7 @@ const tokenizer = new natural.WordTokenizer();
 const csv = require('csv-parser');
 const fs = require('fs');
 
+
 const createCSVWriter = require('csv-writer').createObjectCsvWriter;
 
 const csvWriter = createCSVWriter( {
@@ -24,21 +25,20 @@ function sentimentalAnalysis(text) {
     return output;
 }
 
-async function checkCSV(searchTerm) {
-    fs.createReadStream('../cab432/public/test.csv')
-    .pipe(csv())
-    .on('data', (row) => {
-        if (row.search == searchTerm) {
-            return true;
+//check if term is in csv already
+function checkCSV(searchTerm, data) {
+    let final = false;
+    for(let i = 0; i < data.length; i++) {
+        if (data[i].search == searchTerm) {
+            final = true;
         }
-        else {
-            return false;
-        }
-    })
+    }
+    return final;
 }
+let tableData = [];
 
-function readCSV() {
-    let tableData = [];
+async function readCSV() {
+    tableData = [];
 
     //Read from file
     fs.createReadStream('../cab432/public/test.csv')
@@ -47,35 +47,40 @@ function readCSV() {
         tableData.push(row);
     })
     .on('end', () => {
-       console.log("Table has been written");
+       console.log("Table has been written: ");
        console.log(tableData);
     });
-    return tableData;
+    return await Promise.resolve(tableData);
 }
 
 function updateCSV(word, value, data) {
         let exist = false;
         //Check the csv file for if the term already exists
-        for(let i = 0; i < data.length; i++) {
-                if (data[i].search == word) {
-                    data[i].score = Number(data[i].score) + value;
-                    data[i].total++;
+        for(let i = 0; i < tableData.length; i++) {
+                if (tableData[i].search == word) {
+                    tableData[i].score = Number(tableData[i].score) + value;
+                    tableData[i].total++;
                     exist = true;
                 }
         }
 
         //If search term isnt in the database, push into the table data
-        if (exist == false) {
+        //console.log(checkCSV(word));
+        exist = checkCSV(word, tableData);
+        console.log(exist);
+        if (exist !== true) {
             let obj ={};
             obj.search = word;
             obj.score = 1;
             obj.total = 1;
-            data.push(obj);
+            tableData.push(obj);
+            console.log("pushed new object, from updateCSV");
         }
 
-        console.clear();
-        console.log(data);
-        return data;
+        //console.clear();
+        //console.log(data);
+        saveCSV(tableData);
+        return tableData;
 
 }
 
@@ -89,19 +94,31 @@ function resetCSV() {
 function saveCSV(tableData) {
     //Write the new data
     resetCSV();
+
+    //remove duplicates
+    tableData = tableData.reduce((unique, o) => {
+        if(!unique.some(obj => obj.search === o.search && obj.score === o.score)) {
+          unique.push(o);
+        }
+        return unique;
+    },[]);
+
     csvWriter.writeRecords(tableData)
     .then( ()=> {
-        //console.log('The CSV file was written Successfully');
-        //console.log(tableData);
+        console.log('The CSV file was written Successfully');
+        console.log(tableData);
     });
 }
 
 //Adds one record to the tableData
-function addCSV(searchTerm, data) {
-    let fullData = {'search':searchTerm, 'score': data.score, 'total': data.total};
+function addCSV(data) {
+    let fullData = [];
+    fullData.push( {'search':data.search, 'score': data.score, 'total': data.total} );
+    //console.log("from addcsv: "+fullData);
     csvWriter.writeRecords(fullData)
     .then( ()=> {
-        console.log("data from Redis:" +fullData);
+        console.log("addCSV Finished");
+        return readCSV();
     });
 }
 

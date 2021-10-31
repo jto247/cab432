@@ -10,12 +10,12 @@ const stemmer = require('natural').PorterStemmer;
 const analyzer = new Analyzer("English", stemmer, "afinn");
 const redis = require('redis');
 
-const twitterBearer = "AAAAAAAAAAAAAAAAAAAAAB1nTwEAAAAAWeK9qu%2FjYAU%2FcXOWtIjgT5Hm3Ro%3DIRLYCxx6AkSUwGL9HCjoFMDbeD8OqH2zU9ycqXkEb4WrjZ3dUv";
+const twitterBearer = "AAAAAAAAAAAAAAAAAAAAAB1nTwEAAAAAEqfb8heiH9EgfW7lOr4iUA7HxNo%3DBy9wMBOxD4qHviYQntmdGue3yDDlAGIXATf9iWfNBb4uq9QV8w";
 const streamURL = 'https://api.twitter.com/2/tweets/search/stream';
 const rulesURL = 'https://api.twitter.com/2/tweets/search/stream/rules';
 
 let searchTerm ="";
-let sentimentalValue = [];
+var sentimentalValue;
 
 const redisPort = '6379'; // Port
 const redisName = 'redis' // Name of Redis
@@ -111,7 +111,8 @@ async function setRules(value) {
 
 //Function to connect to stream
 //Retrieved from https://github.com/twitterdev/Twitter-API-v2-sample-code/blob/b3e13798ae1093251f6b03830e4c30b5002e3c46/Filtered-Stream/filtered_stream.js#L145
-function streamConnect(retryAttempt) {
+async function streamConnect(retryAttempt) {
+    //sentimentalValue = await sentiment.readCSV();
     stream.on('data', data => {
         try {
             const json = JSON.parse(data);
@@ -119,12 +120,12 @@ function streamConnect(retryAttempt) {
 
             //Get array of sentimental values for each term and save it to csv file
             sentimentalValue = sentiment.updateCSV(searchTerm, Math.sign(output), sentimentalValue);
-            sentiment.saveCSV(sentimentalValue);
+            //sentiment.saveCSV(sentimentalValue);
             // A successful connection resets retry count.
             retryAttempt = 0;
         } catch (e) {
             if (data.detail === "This stream is currently at the maximum allowed connection limit.") {
-                console.log(e);
+                console.log(data.detail);
                 process.exit(1)
             } else {
                 // Keep alive signal received. Do nothing.
@@ -150,11 +151,10 @@ function streamConnect(retryAttempt) {
 
 router.get('', async function(req,res) {
 
+    //console.clear();
     //destroy stream
     if (req.query.rules == "stopstream") {
-        stream.destroy();
-        //console.log(sentimentalValue[0].search);
-
+        //save csv into redis
         if (sentimentalValue) {
             for (let i = 0; i < sentimentalValue.length; i++) {
                 client.hmset(sentimentalValue[i].search, {
@@ -165,16 +165,16 @@ router.get('', async function(req,res) {
             }
         }
 
-    //save the csv data into redis/other storage
-
-    console.log("close twitter stream");
-    stream = needle.get(streamURL, {
-        headers: {
-            "User-Agent": "v2FilterStreamJS",
-            "Authorization": `Bearer ` +twitterBearer
-        },
-        timeout: 200
-    });
+        //save the csv data into redis/other storage
+        stream.destroy();
+        console.log("close twitter stream");
+        stream = needle.get(streamURL, {
+            headers: {
+                "User-Agent": "v2FilterStreamJS",
+                "Authorization": `Bearer ` +twitterBearer
+            },
+            timeout: 200
+        });
     res.redirect('/');
     }
     else if(req.query.rules == "resetcsv") {
@@ -182,26 +182,35 @@ router.get('', async function(req,res) {
         res.redirect('/');
     } 
     else {
-        //Check Redis/other storage for the term
-        // client.hgetall(searchTerm, async function(err, result){
-        //     //If that key exists in Redis Storage
-        //     if (result) {
-        //         //check if searchterm already in csv
-        //         if (sentiment.checkCSV(searchTerm)) {
-        //             //return back true
-        //             console.log("Term is already in csv");
-        //         }
-        //         else {
-        //             console.log(searchTerm + " is in cache: "+result);
-        //             console.log("adding it to csv");
-        //             sentiment.addCSV(searchTerm, result);
-        //             sentimentalValue = await sentiment.readCSV();
-        //         }
-        //     }
-        // })
         try {
-            sentimentalValue = sentiment.readCSV();
             searchTerm = req.query.rules;
+            sentimentalValue = sentiment.readCSV();
+
+            //Check Redis/other storage for the term
+            client.hgetall(searchTerm, function(err, result) {
+            //If that key exists in Redis Storage
+                if (result) {
+                    console.log ("term in redis " + result.score);
+                    //check if searchterm already in csv
+                    //console.log(sentimentalValue);
+                    //console.log(sentiment.checkCSV(searchTerm, sentimentalValue));
+
+
+                    //THIS DOESN'T WORK??? when u search the same term twice, it adds it twice to the csv file... probably some sync issue
+                    if (sentiment.checkCSV(searchTerm, sentimentalValue) === true) {
+                        //return back true
+                        console.log("Term is already in csv");
+                    }
+                    else {
+                        let fullData = {'search': searchTerm, 'score': result.score, 'total': result.total};
+                        console.log(searchTerm + " is in cache: "+result.score);
+                        console.log(fullData.search + " adding it to csv");
+                        sentimentalValue = sentiment.addCSV(fullData);
+                        
+                        sentimentalValue = sentiment.readCSV();
+                    }
+                }
+            });
             // Gets the complete list of rules currently applied to the stream
             let currentRules = await getAllRules();
             //console.log("current rules: " + currentRules)
@@ -212,6 +221,7 @@ router.get('', async function(req,res) {
     
             // Add rules to the stream. Comment the line below if you don't want to add new rules.
             await setRules(searchTerm);
+            console.log("rules have been added to stream");
     
         } catch (e) {
             console.error(e);
@@ -219,6 +229,7 @@ router.get('', async function(req,res) {
         }
     
         //Begin the stream
+        console.log("begin stream");
         streamConnect(0);
     }
 })

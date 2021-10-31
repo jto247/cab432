@@ -12,14 +12,10 @@ const csvWriter = createCSVWriter( {
     path: '../cab432/test.csv',
     header: [
       {id: 'search', title:'search'},
-      {id: 'score', title: 'score'}
+      {id: 'score', title: 'score'},
+      {id: 'total', title: 'total'}
     ]
   });
-
-
-let score = 0;
-let position = 0;
-
 
 //Break down tweet into array and terms ready for sentimental analysis
 function sentimentalAnalysis(text) {
@@ -39,6 +35,7 @@ function readCSV() {
     })
     .on('end', () => {
        console.log("Table has been written");
+       console.log(tableData);
     });
     return tableData;
 }
@@ -48,14 +45,8 @@ function updateCSV(word, value, data) {
         //Check the csv file for if the term already exists
         for(let i = 0; i < data.length; i++) {
                 if (data[i].search == word) {
-                    if (score == 0) {
-                        score = parseInt(data[i].score);
-                        score = score + value;
-                    }
-                    else {
-                        score = score + value;
-                    }
-                    position = i;
+                    data[i].score = Number(data[i].score) + value;
+                    data[i].total++;
                     exist = true;
                 }
         }
@@ -65,12 +56,9 @@ function updateCSV(word, value, data) {
             let obj ={};
             obj.search = word;
             obj.score = 1;
+            obj.total = 1;
             console.log(data);
             data.push(obj);
-        }
-        else {
-            //If term exists, change its score value
-            data[position].score = score;
         }
         return data;
 
@@ -78,8 +66,8 @@ function updateCSV(word, value, data) {
 
 function resetCSV() {
     //Reset CSV file to input new entries
-        fs.writeFileSync('../cab432/test.csv', "search,score\n");
-        console.log('The CSV file was reset');
+        fs.writeFileSync('../cab432/test.csv', "search,score,total\n");
+        //console.log('The CSV file was reset');
 
 }
 
@@ -90,7 +78,6 @@ function saveCSV(tableData) {
     .then( ()=> {
         console.log('The CSV file was written Successfully');
         console.log(tableData);
-        score = 0;
     });
 }
 

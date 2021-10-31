@@ -1,13 +1,9 @@
 const canvas = document.getElementById('myChart').getContext('2d');
 
 function showTweets() {
-    const params = getHashParams();
-    //Check if there are any tweets sent back from server
-    const checkTweets = params.tweets;
-    if (checkTweets) {
-        //Split tweet param into an array
-        const tweets = params.tweets.split(",");  
-    }
+
+
+  
 }
 
 function findTweets() {
@@ -33,45 +29,50 @@ function getHashParams() {
        hashParams[e[1]] = decodeURIComponent(e[2]);
     }
     return hashParams;
+}
+
+const labels = [];
+
+const data = {
+  labels: labels,
+  datasets: [{
+    label: 'Dataset',
+    data: [],
+    backgroundColor: 'rgb(255, 99, 132)',
+    borderColor: 'rgb(255, 99, 132)',
+  }]
+};
+
+var timer;
+
+//Keep updating the dataset
+//FIND A WAY TO RESET THE DATASET BEFORE UPDATING PLEASE
+timer = setInterval(function() {
+  //reset labels and data doesn't work that well, find something better
+  for (let i =0; i < labels.length;i++) {
+    labels.pop();
+    data.datasets[0].data.pop();
   }
+  d3.csv("test.csv",function(dataset) {
+    console.log(dataset);
+    //labels.pop();
+    labels.push(dataset.search);
+    data.datasets[0].data.push(dataset.score/dataset.total);
+    myChart.update();
+  })
+
+}, 1000);
 
 
 
-  const labels = [];
-
-  const data = {
-    labels: labels,
-    datasets: [{
-      label: 'Dataset',
-      data: [],
-      backgroundColor: 'rgb(255, 99, 132)',
-      borderColor: 'rgb(255, 99, 132)',
-    }]
-  };
-
-  $.get( "test.csv", function(CSVdata) {
-    let array = CSVdata.replaceAll("\r\n", ',').split(',');
-    for (let i = 0; i < array.length; i++) {
-        if (i % 3 === 0 && i !== 0) {
-            labels.push(array[i]);
-            data.datasets[0].data.push(array[i+1]/array[i+2]);
-        }
-    }
- });
-
- 
-
- const config = {
-    type: 'bar',
-    data: data,
-    options: {
-        responsive: true
-    }
-  };
-
-  console.log(config);
-
-  const myChart = new Chart(
-    canvas,
-    config
-  );
+const config = {
+  type: 'bar',
+  data: data,
+  options: {
+      responsive: true
+  }
+};
+const myChart = new Chart(
+  canvas,
+  config
+);

@@ -1,12 +1,3 @@
 search,score,total
-<<<<<<< HEAD
-test,8,16
-australia,178,350
-=======
-pokemon,277,411
-australia,110,194
-nigeria,29,43
-test,20,30
-mouse,4,2
-Pizza,123,163
->>>>>>> dbd7d5fc89dc009e263568bb76793ef68187740e
+pokemon,44,52
+nigeria,20,26

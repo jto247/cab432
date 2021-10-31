@@ -316,6 +316,7 @@ router.get('', async function(req,res) {
             console.error(e);
             process.exit(1);
         }
+        res.redirect('/');
     
         //Begin the stream
         // console.log("begin stream");

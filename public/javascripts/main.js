@@ -1,10 +1,12 @@
+const canvas = document.getElementById('myChart').getContext('2d');
+
 function showTweets() {
     const params = getHashParams();
     //Check if there are any tweets sent back from server
     const checkTweets = params.tweets;
     if (checkTweets) {
         //Split tweet param into an array
-        const tweets = params.tweets.split(",");
+        const tweets = params.tweets.split(",");  
     }
 }
 
@@ -57,7 +59,7 @@ function getHashParams() {
     }
  });
 
- console.log(data);
+ 
 
  const config = {
     type: 'bar',
@@ -66,8 +68,10 @@ function getHashParams() {
         responsive: true
     }
   };
-  const ctx = document.getElementById('myChart').getContext('2d');
+
+  console.log(config);
+
   const myChart = new Chart(
-    ctx,
+    canvas,
     config
   );

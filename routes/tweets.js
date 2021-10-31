@@ -10,6 +10,19 @@ const stemmer = require('natural').PorterStemmer;
 const analyzer = new Analyzer("English", stemmer, "afinn");
 const redis = require('redis');
 
+require('dotenv').config();
+const AWS = require('aws-sdk');
+
+const bucketName = 'cab432-sentimental-store';
+// Create a promise on S3 service object
+const bucketPromise = new AWS.S3({apiVersion: '2006-03-01'}).createBucket({Bucket: bucketName}).promise();
+bucketPromise.then(function(data) {
+ console.log("Successfully created " + bucketName);
+})
+.catch(function(err) {
+ console.error(err, err.stack);
+});
+
 const twitterBearer = "AAAAAAAAAAAAAAAAAAAAAB1nTwEAAAAAEqfb8heiH9EgfW7lOr4iUA7HxNo%3DBy9wMBOxD4qHviYQntmdGue3yDDlAGIXATf9iWfNBb4uq9QV8w";
 const streamURL = 'https://api.twitter.com/2/tweets/search/stream';
 const rulesURL = 'https://api.twitter.com/2/tweets/search/stream/rules';
@@ -120,7 +133,6 @@ async function streamConnect(retryAttempt) {
 
             //Get array of sentimental values for each term and save it to csv file
             sentimentalValue = sentiment.updateCSV(searchTerm, Math.sign(output), sentimentalValue);
-            //sentiment.saveCSV(sentimentalValue);
             // A successful connection resets retry count.
             retryAttempt = 0;
         } catch (e) {
@@ -150,22 +162,28 @@ async function streamConnect(retryAttempt) {
 }
 
 router.get('', async function(req,res) {
-
-    //console.clear();
     //destroy stream
     if (req.query.rules == "stopstream") {
-        //save csv into redis
+        //save csv into redis and s3
         if (sentimentalValue) {
             for (let i = 0; i < sentimentalValue.length; i++) {
                 client.hmset(sentimentalValue[i].search, {
                     'score': sentimentalValue[i].score,
                     'total': sentimentalValue[i].total
                 });
+
+                const body = {'score': sentimentalValue[i].score, 'total': sentimentalValue[i].total};
+                const objectParams = {Bucket: bucketName, Key: `database-` + sentimentalValue[i].search, Body: JSON.stringify(body)};
+                const uploadPromise = new AWS.S3({apiVersion: '2006-03-01'}).putObject(objectParams).promise();
+                uploadPromise.then(function(data) {
+                    console.log("Successfully uploaded data to " + bucketName + "/" + `database-` + sentimentalValue[i].search);
+                });
+
                 console.log("saved "+sentimentalValue[i].search +" into redis.");
             }
         }
 
-        //save the csv data into redis/other storage
+        //close stream
         stream.destroy();
         console.log("close twitter stream");
         stream = needle.get(streamURL, {
@@ -187,16 +205,11 @@ router.get('', async function(req,res) {
             sentimentalValue = sentiment.readCSV();
 
             //Check Redis/other storage for the term
-            client.hgetall(searchTerm, function(err, result) {
+            client.hgetall(searchTerm, async function(err, result) {
             //If that key exists in Redis Storage
                 if (result) {
                     console.log ("term in redis " + result.score);
-                    //check if searchterm already in csv
-                    //console.log(sentimentalValue);
-                    //console.log(sentiment.checkCSV(searchTerm, sentimentalValue));
-
-
-                    //THIS DOESN'T WORK??? when u search the same term twice, it adds it twice to the csv file... probably some sync issue
+                    //check if searchterm already in csv                   
                     if (sentiment.checkCSV(searchTerm, sentimentalValue) === true) {
                         //return back true
                         console.log("Term is already in csv");
@@ -209,19 +222,95 @@ router.get('', async function(req,res) {
                         
                         sentimentalValue = sentiment.readCSV();
                     }
+
+                    // Gets the complete list of rules currently applied to the stream
+                    let currentRules = await getAllRules();
+                    //console.log("current rules: " + currentRules)
+            
+                    // Delete all rules. Comment the line below if you want to keep your existing rules.
+                    await deleteAllRules(currentRules);
+                    console.log("deleted all rules");
+            
+                    // Add rules to the stream. Comment the line below if you don't want to add new rules.
+                    await setRules(searchTerm);
+                    console.log("rules have been added to stream");
+
+                    console.log("begin stream");
+                    streamConnect(0);
+                }
+                //Check S3 bucket
+                else {
+                    const s3Key = `database-` + searchTerm;
+                    // Check S3
+                    const params = { Bucket: bucketName, Key: s3Key};
+
+                    new AWS.S3({apiVersion: '2006-03-01'}).getObject(params, async(err, result) => {
+                        if (result) {
+                            // Serve from S3
+                            const resultJSON = JSON.parse(result.Body);
+                            console.log("this from s3" + resultJSON);
+                            console.log(resultJSON);
+
+                            //check if term is in csv file
+                            if (sentiment.checkCSV(searchTerm, sentimentalValue) === true) {
+                                //return back true
+                                console.log("Term is already in csv");
+                            }
+                            else {
+                                let fullData = {'search': searchTerm, 'score': resultJSON.score, 'total': resultJSON.total};
+                                console.log(fullData.search + " adding it to csv");
+                                sentimentalValue = sentiment.addCSV(fullData);
+                                
+                                sentimentalValue = sentiment.readCSV();
+                            }
+
+
+                            // Gets the complete list of rules currently applied to the stream
+                            let currentRules = await getAllRules();
+                            //console.log("current rules: " + currentRules)
+                    
+                            // Delete all rules. Comment the line below if you want to keep your existing rules.
+                            await deleteAllRules(currentRules);
+                            console.log("deleted all rules");
+                    
+                            // Add rules to the stream. Comment the line below if you don't want to add new rules.
+                            await setRules(searchTerm);
+                            console.log("rules have been added to stream");
+
+                            console.log("begin stream");
+                            streamConnect(0);
+                        } 
+                        else {
+                            // Gets the complete list of rules currently applied to the stream
+                            let currentRules = await getAllRules();
+                            //console.log("current rules: " + currentRules)
+                    
+                            // Delete all rules. Comment the line below if you want to keep your existing rules.
+                            await deleteAllRules(currentRules);
+                            console.log("deleted all rules");
+                    
+                            // Add rules to the stream. Comment the line below if you don't want to add new rules.
+                            await setRules(searchTerm);
+                            console.log("rules have been added to stream");
+
+                            console.log("begin stream");
+                            streamConnect(0);
+                        }
+                    })
+
                 }
             });
-            // Gets the complete list of rules currently applied to the stream
-            let currentRules = await getAllRules();
-            //console.log("current rules: " + currentRules)
+            // // Gets the complete list of rules currently applied to the stream
+            // let currentRules = await getAllRules();
+            // //console.log("current rules: " + currentRules)
     
-            // Delete all rules. Comment the line below if you want to keep your existing rules.
-            await deleteAllRules(currentRules);
-            console.log("deleted all rules");
+            // // Delete all rules. Comment the line below if you want to keep your existing rules.
+            // await deleteAllRules(currentRules);
+            // console.log("deleted all rules");
     
-            // Add rules to the stream. Comment the line below if you don't want to add new rules.
-            await setRules(searchTerm);
-            console.log("rules have been added to stream");
+            // // Add rules to the stream. Comment the line below if you don't want to add new rules.
+            // await setRules(searchTerm);
+            // console.log("rules have been added to stream");
     
         } catch (e) {
             console.error(e);
@@ -229,8 +318,8 @@ router.get('', async function(req,res) {
         }
     
         //Begin the stream
-        console.log("begin stream");
-        streamConnect(0);
+        // console.log("begin stream");
+        // streamConnect(0);
     }
 })
 

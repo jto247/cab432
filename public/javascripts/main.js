@@ -17,6 +17,11 @@ function stopStream() {
   window.location.replace("search/" + "?rules=stopstream");
 }
 
+//debugging - delete later
+function resetCSV() {
+  window.location.replace("search/" + "?rules=resetcsv");
+}
+
 //Getting the queries from params
 function getHashParams() {
     var hashParams = {};

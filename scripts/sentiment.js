@@ -9,7 +9,7 @@ const fs = require('fs');
 const createCSVWriter = require('csv-writer').createObjectCsvWriter;
 
 const csvWriter = createCSVWriter( {
-    path: '../cab432/test.csv',
+    path: '../cab432/public/test.csv',
     header: [
       {id: 'search', title:'search'},
       {id: 'score', title: 'score'},
@@ -24,11 +24,24 @@ function sentimentalAnalysis(text) {
     return output;
 }
 
+async function checkCSV(searchTerm) {
+    fs.createReadStream('../cab432/public/test.csv')
+    .pipe(csv())
+    .on('data', (row) => {
+        if (row.search == searchTerm) {
+            return true;
+        }
+        else {
+            return false;
+        }
+    })
+}
+
 function readCSV() {
     let tableData = [];
 
     //Read from file
-    fs.createReadStream('../cab432/test.csv')
+    fs.createReadStream('../cab432/public/test.csv')
     .pipe(csv())
     .on('data', (row) => {
         tableData.push(row);
@@ -68,7 +81,7 @@ function updateCSV(word, value, data) {
 
 function resetCSV() {
     //Reset CSV file to input new entries
-        fs.writeFileSync('../cab432/test.csv', "search,score,total\n");
+        fs.writeFileSync('../cab432/public/test.csv', "search,score,total\n");
         //console.log('The CSV file was reset');
 
 }
@@ -83,6 +96,15 @@ function saveCSV(tableData) {
     });
 }
 
+//Adds one record to the tableData
+function addCSV(searchTerm, data) {
+    let fullData = {'search':searchTerm, 'score': data.score, 'total': data.total};
+    csvWriter.writeRecords(fullData)
+    .then( ()=> {
+        console.log("data from Redis:" +fullData);
+    });
+}
+
 
 
 
@@ -91,3 +113,5 @@ module.exports.updateCSV = updateCSV;
 module.exports.saveCSV = saveCSV;
 module.exports.readCSV = readCSV;
 module.exports.resetCSV = resetCSV;
+module.exports.addCSV = addCSV;
+module.exports.checkCSV = checkCSV;

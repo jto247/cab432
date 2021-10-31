@@ -33,34 +33,41 @@ function getHashParams() {
     return hashParams;
   }
 
-  const labels = [
-    'January',
-    'February',
-    'March',
-    'April',
-    'May',
-    'June',
-  ];
+
+
+  const labels = [];
 
   const data = {
     labels: labels,
     datasets: [{
-      label: 'My First dataset',
+      label: 'Dataset',
+      data: [],
       backgroundColor: 'rgb(255, 99, 132)',
       borderColor: 'rgb(255, 99, 132)',
-      data: [0, 10, 5, 2, 20, 30, 45],
     }]
   };
 
-  const config = {
-    type: 'line',
+  $.get( "test.csv", function(CSVdata) {
+    let array = CSVdata.replaceAll("\r\n", ',').split(',');
+    for (let i = 0; i < array.length; i++) {
+        if (i % 3 === 0 && i !== 0) {
+            labels.push(array[i]);
+            data.datasets[0].data.push(array[i+1]/array[i+2]);
+        }
+    }
+ });
+
+ console.log(data);
+
+ const config = {
+    type: 'bar',
     data: data,
     options: {
         responsive: true
     }
   };
-
+  const ctx = document.getElementById('myChart').getContext('2d');
   const myChart = new Chart(
-    document.getElementById('myChart'),
+    ctx,
     config
   );

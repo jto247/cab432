@@ -21,6 +21,14 @@ var interval;
 const redisPort = '6379'; // Port
 const redisName = 'redis' // Name of Redis
 
+let stream = needle.get(streamURL, {
+    headers: {
+        "User-Agent": "v2FilterStreamJS",
+        "Authorization": `Bearer ` +twitterBearer
+    },
+    timeout: 200
+});
+
 //Create and connect redis client to local instance
 let client = redis.createClient();
 
@@ -105,22 +113,11 @@ async function setRules(value) {
 //Function to connect to stream
 //Retrieved from https://github.com/twitterdev/Twitter-API-v2-sample-code/blob/b3e13798ae1093251f6b03830e4c30b5002e3c46/Filtered-Stream/filtered_stream.js#L145
 function streamConnect(retryAttempt) {
-
-    const stream = needle.get(streamURL, {
-        headers: {
-            "User-Agent": "v2FilterStreamJS",
-            "Authorization": `Bearer ` +twitterBearer
-        },
-        timeout: 200
-    });
-
     //Update the csv file every second
     //interval = setInterval(function () {sentiment.saveCSV(sentimentalValue);}, 1000);
-    sentimentalValue = sentiment.readCSV();
-
     stream.on('data', data => {
         try {
-            //Maybe save this somewhere? and then perfrom analysis on it
+                //Maybe save this somewhere? and then perfrom analysis on it
             const json = JSON.parse(data);
             let redisTweetID = 'tweetID:' + json.data.id;
             //console.log(json);
@@ -141,19 +138,15 @@ function streamConnect(retryAttempt) {
 
 
 
-            //Get array of sentimental values for each term
+            //Get array of sentimental values for each term and save it to csv file
             sentimentalValue = sentiment.updateCSV(searchTerm, Math.sign(output), sentimentalValue);
             sentiment.saveCSV(sentimentalValue);
             // A successful connection resets retry count.
-
-
-
-
             retryAttempt = 0;
         } catch (e) {
             if (data.detail === "This stream is currently at the maximum allowed connection limit.") {
-                console.log(data.detail)
-                process.exit(1)
+                console.log("bye bye stream");
+                //process.exit(1)
             } else {
                 // Keep alive signal received. Do nothing.
             }
@@ -188,30 +181,44 @@ function streamConnect(retryAttempt) {
 
 }
 
-
 router.get('', async function(req,res) {
-    try {
-        searchTerm = req.query.rules;
-        // Gets the complete list of rules currently applied to the stream
-        let currentRules = await getAllRules();
-        //console.log("current rules: " + currentRules)
 
-        // Delete all rules. Comment the line below if you want to keep your existing rules.
-        await deleteAllRules(currentRules);
-        console.log("deleted all rules");
-
-        // Add rules to the stream. Comment the line below if you don't want to add new rules.
-        await setRules(searchTerm);
-
-    } catch (e) {
-        console.error(e);
-        process.exit(1);
+    //destroy stream
+    if (req.query.rules == "stopstream") {
+        stream.destroy();
+        console.log("close twitter stream");
+        stream = needle.get(streamURL, {
+            headers: {
+                "User-Agent": "v2FilterStreamJS",
+                "Authorization": `Bearer ` +twitterBearer
+            },
+            timeout: 200
+        });
+        res.redirect('/');
     }
-
-    //Begin the stream
-    streamConnect(0);
-
-
+    else {
+        try {
+            sentimentalValue = sentiment.readCSV();
+            searchTerm = req.query.rules;
+            // Gets the complete list of rules currently applied to the stream
+            let currentRules = await getAllRules();
+            //console.log("current rules: " + currentRules)
+    
+            // Delete all rules. Comment the line below if you want to keep your existing rules.
+            await deleteAllRules(currentRules);
+            console.log("deleted all rules");
+    
+            // Add rules to the stream. Comment the line below if you don't want to add new rules.
+            await setRules(searchTerm);
+    
+        } catch (e) {
+            console.error(e);
+            process.exit(1);
+        }
+    
+        //Begin the stream
+        streamConnect(0);
+    }
 })
 
 module.exports = router;

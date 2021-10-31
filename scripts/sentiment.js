@@ -57,9 +57,11 @@ function updateCSV(word, value, data) {
             obj.search = word;
             obj.score = 1;
             obj.total = 1;
-            console.log(data);
             data.push(obj);
         }
+
+        console.clear();
+        console.log(data);
         return data;
 
 }
@@ -76,8 +78,8 @@ function saveCSV(tableData) {
     resetCSV();
     csvWriter.writeRecords(tableData)
     .then( ()=> {
-        console.log('The CSV file was written Successfully');
-        console.log(tableData);
+        //console.log('The CSV file was written Successfully');
+        //console.log(tableData);
     });
 }
 

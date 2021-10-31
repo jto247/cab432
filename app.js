@@ -8,11 +8,14 @@ const app = express();
 //First Screen/ Main menu
 app.use(express.static(__dirname + '/public'));
 
-
+//Home page
+app.get('/', function (req, res) {
+    
+})
 
 
 //Finding Tweets/ filtered stream
-app.use('/search', tweetRouter);
+app.use('/search/', tweetRouter);
 
 
 

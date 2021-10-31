@@ -12,6 +12,10 @@ function findTweets() {
     window.location.replace("search/" + "?rules=" + encodeURI(document.getElementById("searchBox").value));
 }
 
+function stopStream() {
+  alert("yes");
+  window.location.replace("search/" + "?rules=stopstream");
+}
 
 //Getting the queries from params
 function getHashParams() {

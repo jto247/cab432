@@ -13,6 +13,10 @@ app.get('/', function (req, res) {
     
 })
 
+app.get('/show', function (req, res) {
+    
+})
+
 
 //Finding Tweets/ filtered stream
 app.use('/search/', tweetRouter);

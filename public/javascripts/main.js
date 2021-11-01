@@ -1,13 +1,19 @@
 const canvas = document.getElementById('myChart').getContext('2d');
+var rule;
 
 function showTweets() {
-
+    var params = getHashParams();
+    if (params.show) {
+      rule = params.show;
+    }
 
   
 }
 
 function findTweets() {
-    window.location.replace("search/" + "?rules=" + encodeURI(document.getElementById("searchBox").value));
+  rule = document.getElementById("searchBox").value;
+  console.log(document.getElementById("searchBox").value);
+  window.location.replace("search/" + "?rules=" + encodeURI(document.getElementById("searchBox").value));
 }
 
 function stopStream() {
@@ -48,20 +54,19 @@ var timer;
 //Keep updating the dataset
 //FIND A WAY TO RESET THE DATASET BEFORE UPDATING PLEASE
 timer = setInterval(function() {
-  //reset labels and data doesn't work that well, find something better
-  for (let i =0; i < labels.length;i++) {
-    labels.pop();
-    data.datasets[0].data.pop();
-  }
   d3.csv("test.csv",function(dataset) {
     console.log(dataset);
-    //labels.pop();
-    labels.push(dataset.search);
-    data.datasets[0].data.push(dataset.score/dataset.total);
-    myChart.update();
+    console.log(rule);
+    if(dataset.search == rule) {
+      labels.pop();
+      labels.push(dataset.search);
+      data.datasets[0].data.pop();
+      data.datasets[0].data.push(dataset.score);
+      myChart.update('none');
+    }
   })
 
-}, 1000);
+}, 2000);
 
 
 

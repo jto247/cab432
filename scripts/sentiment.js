@@ -98,7 +98,7 @@ function saveCSV(tableData) {
     //remove duplicates 
     //Retrieved from https://stackoverflow.com/a/45440277
     tableData = tableData.reduce((unique, o) => {
-        if(!unique.some(obj => obj.search === o.search && obj.score === o.score)) {
+        if(!unique.some(obj => obj.search === o.search)) {
           unique.push(o);
         }
         return unique;

@@ -28,6 +28,7 @@ const streamURL = 'https://api.twitter.com/2/tweets/search/stream';
 const rulesURL = 'https://api.twitter.com/2/tweets/search/stream/rules';
 
 let searchTerm ="";
+let rulesID = "";
 var sentimentalValue;
 
 const redisPort = '6379'; // Port
@@ -65,8 +66,13 @@ async function getAllRules() {
         console.log("Error:", response.statusMessage, response.statusCode)
         throw new Error(response.body);
     }
-
-    //console.log(response.body);
+    for (let i = 0; i < response.body.data.length; i++) {
+        if (response.body.data[i].value == searchTerm) {
+            rulesID = response.body.data[i].id;
+        }
+    }
+    console.log(response.body);
+    //console.log(matchRules);
     return (response.body);
 }
 
@@ -129,10 +135,16 @@ async function streamConnect(retryAttempt) {
     stream.on('data', data => {
         try {
             const json = JSON.parse(data);
-            let output = Number(sentiment.sentimentalAnalysis(json.data.text.split(" ")));
+            console.log(json);
+            console.log(json.matching_rules[0].id);
+            console.log("Rules ID: " +rulesID);
+            if (json.matching_rules[0].id == rulesID) {
+                console.log("matching rules id is true");
+                let output = Number(sentiment.sentimentalAnalysis(json.data.text.split(" ")));
 
-            //Get array of sentimental values for each term and save it to csv file
-            sentimentalValue = sentiment.updateCSV(searchTerm, Math.sign(output), sentimentalValue);
+                //Get array of sentimental values for each term and save it to csv file
+                sentimentalValue = sentiment.updateCSV(searchTerm, Math.sign(output), sentimentalValue);
+            }
             // A successful connection resets retry count.
             retryAttempt = 0;
         } catch (e) {
@@ -165,7 +177,20 @@ router.get('', async function(req,res) {
     //destroy stream
     if (req.query.rules == "stopstream") {
         //save csv into redis and s3
+        sentimentalValue = sentiment.updateCSV(searchTerm, 0, sentimentalValue)
+        console.log("before removal unique: " + sentimentalValue);
         if (sentimentalValue) {
+            //Remove duplicates
+            sentimentalValue = sentimentalValue.reduce((unique, o) => {
+                if(!unique.some(obj => obj.search === o.search)) {
+                  unique.push(o);
+                }
+                return unique;
+            },[]);
+
+            //Final save to csv
+        sentiment.saveCSV(sentimentalValue);
+
             for (let i = 0; i < sentimentalValue.length; i++) {
                 client.hmset(sentimentalValue[i].search, {
                     'score': sentimentalValue[i].score,
@@ -225,6 +250,7 @@ router.get('', async function(req,res) {
 
                     // Gets the complete list of rules currently applied to the stream
                     let currentRules = await getAllRules();
+                    console.log(currentRules);
                     //console.log("current rules: " + currentRules)
             
                     // Delete all rules. Comment the line below if you want to keep your existing rules.
@@ -234,6 +260,9 @@ router.get('', async function(req,res) {
                     // Add rules to the stream. Comment the line below if you don't want to add new rules.
                     await setRules(searchTerm);
                     console.log("rules have been added to stream");
+
+                    currentRules = await getAllRules();
+                    console.log("rules ID: " +currentRules);
 
                     console.log("begin stream");
                     streamConnect(0);
@@ -277,6 +306,9 @@ router.get('', async function(req,res) {
                             await setRules(searchTerm);
                             console.log("rules have been added to stream");
 
+                            currentRules = await getAllRules();
+                            console.log("rules ID: " +currentRules);
+
                             console.log("begin stream");
                             streamConnect(0);
                         } 
@@ -292,6 +324,9 @@ router.get('', async function(req,res) {
                             // Add rules to the stream. Comment the line below if you don't want to add new rules.
                             await setRules(searchTerm);
                             console.log("rules have been added to stream");
+
+                            currentRules = await getAllRules();
+                            console.log("rules ID: " +currentRules);
 
                             console.log("begin stream");
                             streamConnect(0);
@@ -316,7 +351,7 @@ router.get('', async function(req,res) {
             console.error(e);
             process.exit(1);
         }
-        res.redirect('/');
+        res.redirect('/show?='+searchTerm);
     
         //Begin the stream
         // console.log("begin stream");

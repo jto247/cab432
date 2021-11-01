@@ -61,7 +61,7 @@ timer = setInterval(function() {
       labels.pop();
       labels.push(dataset.search);
       data.datasets[0].data.pop();
-      data.datasets[0].data.push(dataset.score);
+      data.datasets[0].data.push(dataset.score/dataset.total);
       myChart.update('none');
     }
   })
@@ -74,6 +74,12 @@ const config = {
   type: 'bar',
   data: data,
   options: {
+    scales: {
+      y: {
+        min: 0,
+        max: 1
+      }
+    },
       responsive: true
   }
 };

@@ -23,7 +23,7 @@ bucketPromise.then(function(data) {
  console.error(err, err.stack);
 });
 
-const twitterBearer = "AAAAAAAAAAAAAAAAAAAAAB1nTwEAAAAAEqfb8heiH9EgfW7lOr4iUA7HxNo%3DBy9wMBOxD4qHviYQntmdGue3yDDlAGIXATf9iWfNBb4uq9QV8w";
+const twitterBearer = "AAAAAAAAAAAAAAAAAAAAAG5VVQEAAAAATXVIxiA19xSIYMtrzdq9sWW1YKE%3DBlPj2vJwoa97lw66BNGQnxZhPt8lZ2ep8s1JVqVVCfZFnwKceM";
 const streamURL = 'https://api.twitter.com/2/tweets/search/stream';
 const rulesURL = 'https://api.twitter.com/2/tweets/search/stream/rules';
 
@@ -62,16 +62,19 @@ async function getAllRules() {
         }
     })
 
+    //console.log(response.body);
     if (response.statusCode !== 200) {
         console.log("Error:", response.statusMessage, response.statusCode)
         throw new Error(response.body);
     }
-    for (let i = 0; i < response.body.data.length; i++) {
-        if (response.body.data[i].value == searchTerm) {
-            rulesID = response.body.data[i].id;
+    if (response.body.data) {
+        for (let i = 0; i < response.body.data.length; i++) {
+            if (response.body.data[i].value == searchTerm) {
+                rulesID = response.body.data[i].id;
+            }
         }
     }
-    console.log(response.body);
+    
     //console.log(matchRules);
     return (response.body);
 }
@@ -136,10 +139,10 @@ async function streamConnect(retryAttempt) {
         try {
             const json = JSON.parse(data);
             console.log(json);
-            console.log(json.matching_rules[0].id);
-            console.log("Rules ID: " +rulesID);
+            //console.log(json.matching_rules[0].id);
+            //console.log("Rules ID: " +rulesID);
             if (json.matching_rules[0].id == rulesID) {
-                console.log("matching rules id is true");
+                //console.log(rulesID + "++");
                 let output = Number(sentiment.sentimentalAnalysis(json.data.text.split(" ")));
 
                 //Get array of sentimental values for each term and save it to csv file
@@ -177,9 +180,10 @@ router.get('', async function(req,res) {
     //destroy stream
     if (req.query.rules == "stopstream") {
         //save csv into redis and s3
-        sentimentalValue = sentiment.updateCSV(searchTerm, 0, sentimentalValue)
-        console.log("before removal unique: " + sentimentalValue);
+        
+        //console.log("before removal unique: " + sentimentalValue);
         if (sentimentalValue) {
+            sentimentalValue = sentiment.updateCSV(searchTerm, 0, sentimentalValue)
             //Remove duplicates
             sentimentalValue = sentimentalValue.reduce((unique, o) => {
                 if(!unique.some(obj => obj.search === o.search)) {
@@ -188,7 +192,7 @@ router.get('', async function(req,res) {
                 return unique;
             },[]);
 
-            //Final save to csv
+        //Final save to csv
         sentiment.saveCSV(sentimentalValue);
 
             for (let i = 0; i < sentimentalValue.length; i++) {
@@ -237,12 +241,10 @@ router.get('', async function(req,res) {
                     //check if searchterm already in csv                   
                     if (sentiment.checkCSV(searchTerm, sentimentalValue) === true) {
                         //return back true
-                        console.log("Term is already in csv");
+                        console.log("Term is already in csv (redis)");
                     }
                     else {
                         let fullData = {'search': searchTerm, 'score': result.score, 'total': result.total};
-                        console.log(searchTerm + " is in cache: "+result.score);
-                        console.log(fullData.search + " adding it to csv");
                         sentimentalValue = sentiment.addCSV(fullData);
                         
                         sentimentalValue = sentiment.readCSV();
@@ -262,7 +264,7 @@ router.get('', async function(req,res) {
                     console.log("rules have been added to stream");
 
                     currentRules = await getAllRules();
-                    console.log("rules ID: " +currentRules);
+                    //console.log("rules ID: " +currentRules);
 
                     console.log("begin stream");
                     streamConnect(0);
@@ -277,13 +279,13 @@ router.get('', async function(req,res) {
                         if (result) {
                             // Serve from S3
                             const resultJSON = JSON.parse(result.Body);
-                            console.log("this from s3" + resultJSON);
+                            console.log("this from s3");
                             console.log(resultJSON);
 
                             //check if term is in csv file
                             if (sentiment.checkCSV(searchTerm, sentimentalValue) === true) {
                                 //return back true
-                                console.log("Term is already in csv");
+                                console.log("Term is already in csv (S3)");
                             }
                             else {
                                 let fullData = {'search': searchTerm, 'score': resultJSON.score, 'total': resultJSON.total};
@@ -307,7 +309,7 @@ router.get('', async function(req,res) {
                             console.log("rules have been added to stream");
 
                             currentRules = await getAllRules();
-                            console.log("rules ID: " +currentRules);
+                            console.log(currentRules);
 
                             console.log("begin stream");
                             streamConnect(0);

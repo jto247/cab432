@@ -67,14 +67,14 @@ function updateCSV(word, value, data) {
         //If search term isnt in the database, push into the table data
         //console.log(checkCSV(word));
         exist = checkCSV(word, tableData);
-        console.log(exist);
+        //console.log(exist);
         if (exist !== true) {
             let obj ={};
             obj.search = word;
             obj.score = 1;
             obj.total = 1;
             tableData.push(obj);
-            console.log("pushed new object, from updateCSV");
+            //console.log("pushed new object, from updateCSV");
         }
 
         //console.clear();
@@ -106,7 +106,7 @@ function saveCSV(tableData) {
 
     csvWriter.writeRecords(tableData)
     .then( ()=> {
-        console.log('The CSV file was written Successfully');
+        //console.log('The CSV file was written Successfully');
         console.log(tableData);
     });
 }
@@ -118,7 +118,7 @@ function addCSV(data) {
     //console.log("from addcsv: "+fullData);
     csvWriter.writeRecords(fullData)
     .then( ()=> {
-        console.log("addCSV Finished");
+        //console.log("addCSV Finished");
         return readCSV();
     });
 }
